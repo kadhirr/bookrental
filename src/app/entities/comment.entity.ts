@@ -9,7 +9,7 @@ export class Comment extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @ManyToOne(() => User, { nullable: false })
   author: User;
 
   @CreateDateColumn({ type: 'timestamp' })

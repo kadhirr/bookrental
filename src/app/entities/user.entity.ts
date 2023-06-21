@@ -9,10 +9,10 @@ export class User extends BaseEntity {
   id: number;
 
   @Column()
-  first_name: string;
+  firstName: string;
 
   @Column()
-  last_name: string;
+  lastName: string;
 
   @Column({ unique: true })
   email: string;
@@ -21,12 +21,12 @@ export class User extends BaseEntity {
   password: string;
 
   @Column()
-  role: string;
+  role: number;
 
   @Column()
   isBanned: boolean;
 
-  @ManyToOne(() => BookCopy, (bookcopy) => bookcopy.user)
+  @OneToMany(() => BookCopy, (bookcopy) => bookcopy.user)
   rentedBooks: BookCopy[]
 }
 

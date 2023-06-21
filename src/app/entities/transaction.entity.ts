@@ -1,5 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { BaseEntity, Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { BaseEntity, Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { BookCopy } from './bookcopy.entity';
 import { User } from './user.entity';
 
@@ -15,16 +15,19 @@ export class Transaction extends BaseEntity {
   @ManyToOne(() => User, { nullable: false })
   user: User;
 
-  @Column()
+  @CreateDateColumn()
+  date: Date;
+
+  @Column({ nullable: true })
   rentalStart: Date;
 
-  @Column()
+  @Column({ nullable: true })
   rentalEnd: Date;
 
-  @Column()
+  @Column({ nullable: true })
   duration: number;
 
-  @Column()
+  @Column({ nullable: true })
   amount: number;
 
 }
