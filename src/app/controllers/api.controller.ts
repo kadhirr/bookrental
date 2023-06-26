@@ -1,5 +1,5 @@
 import { ApiInfo, ApiServer, Context, controller, Get, HttpResponseOK } from '@foal/core';
-import { AuthController, BookController } from './api';
+import { AuthController, BookController, UserController } from './api';
 
 @ApiInfo({
   title: 'Book Rental Store API',
@@ -12,7 +12,7 @@ export class ApiController {
   subControllers = [
     controller('/auth', AuthController),
     controller('/book', BookController),
-
+    controller('/user', UserController)
   ];
 
 

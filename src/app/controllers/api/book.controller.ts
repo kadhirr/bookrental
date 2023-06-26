@@ -1,4 +1,4 @@
-import { ApiUseTag, Context, Delete, Get, HttpResponseForbidden, HttpResponseInternalServerError, HttpResponseNotFound, HttpResponseOK, Post, ValidateBody, ValidatePathParam, ValidateQueryParam, controller } from '@foal/core';
+import { ApiUseTag, Context, Delete, Get, HttpResponseForbidden, HttpResponseInternalServerError, HttpResponseNotFound, HttpResponseOK, Patch, Post, ValidateBody, ValidatePathParam, ValidateQueryParam, controller } from '@foal/core';
 import { Book, BookCopy, Transaction, User } from '../../entities';
 import { IsNull, Like } from 'typeorm';
 import { JWTRequired } from '@foal/jwt';
@@ -12,6 +12,7 @@ function cleanBookCopy(bc: BookCopy) {
   return {
     tagId: bc.tagId,
     book: bc.book,
+    transaction: bc.transaction,
     user
   }
 }
@@ -103,7 +104,8 @@ export class BookController {
         where: {
           book: {
             id: bookId
-          }
+          },
+          user: IsNull()
         }
       });
 
@@ -113,8 +115,6 @@ export class BookController {
         })
       }
 
-      book.user = ctx.user;
-
 
 
       const transaction = new Transaction();
@@ -122,14 +122,18 @@ export class BookController {
       transaction.user = ctx.user;
       transaction.rentalStart = new Date();
 
+
+      book.user = ctx.user;
+
       // Start a transaction to save data
       const queryRunner = dataSource.createQueryRunner();
       await queryRunner.connect();
       await queryRunner.startTransaction();
 
       try {
-        await book.save();
         await transaction.save();
+        book.transaction = transaction;
+        await book.save();
 
         await queryRunner.commitTransaction();
       }
@@ -199,6 +203,7 @@ export class BookController {
       }
 
       bookcopy.user = null;
+      bookcopy.transaction = null;
 
       const prevDuration = prevTransaction.duration || 0;
 
@@ -314,14 +319,17 @@ export class BookController {
       }
 
 
+
       // Start a transaction to save data
       const queryRunner = dataSource.createQueryRunner();
       await queryRunner.connect();
       await queryRunner.startTransaction();
 
       try {
-        await bookcopy.save();
         await newTransaction.save();
+        bookcopy.transaction = newTransaction;
+        await bookcopy.save();
+
 
         await queryRunner.commitTransaction();
       }
@@ -361,11 +369,15 @@ export class BookController {
     }
     const bookCopies = await BookCopy.createQueryBuilder("book_copy")
       .leftJoinAndSelect("book_copy.user", "user")
+      .select(['book_copy.tagId', 'user.firstName', 'user.lastName', 'user.email'])
+      .leftJoinAndSelect("book_copy.transaction", "transaction")
       .leftJoinAndSelect("book_copy.book", "book")
-      // .leftJoinAndSelect("transaction.bookCopyTagId", "tagId")
       .where("bookId = :bookId", { bookId })
       .getMany();
 
+    console.log("raw results", bookCopies);
+
+    // TODO: try selecta fter leftjoin
     // Remove Unnecessary Fields
     let cleanedBookCopies = bookCopies.map(cleanBookCopy);
 
@@ -384,7 +396,7 @@ export class BookController {
     const bookCopy = await BookCopy.createQueryBuilder("book_copy")
       .leftJoinAndSelect("book_copy.user", "user")
       .leftJoinAndSelect("book_copy.book", "book")
-      // .leftJoinAndSelect("transaction.bookCopyTagId", "tagId")
+      .leftJoinAndSelect("book_copy.transaction", "transaction")
       .where("tagId = :tagId", { tagId })
       .getOne();
 
@@ -426,6 +438,48 @@ export class BookController {
     } catch (e: any) {
       return new HttpResponseInternalServerError();
     }
+
+    return new HttpResponseOK();
+  }
+
+  @Patch("/:bookId/")
+  @ValidatePathParam("bookId", { type: 'number' })
+  @ValidateBody({
+    additionalProperties: false,
+    properties: {
+      name: { type: 'string' },
+      author: { type: 'string' },
+      price: { type: 'integer' },
+    },
+    required: [],
+    type: 'object'
+  })
+  @JWTRequired({
+    cookie: true,
+    user: (id: number) => User.findOneBy({ id })
+  })
+  @StaffRequired()
+  async changeBookData(ctx: Context<User>, { bookId }: { bookId: number }) {
+    const book = Book.findOneBy({ id: bookId });
+    if (!book) {
+      return new HttpResponseNotFound();
+    }
+
+    let options = {};
+    if (ctx.request.body.name !== undefined) {
+      options['name'] = ctx.request.body.name;
+    }
+    if (ctx.request.body.price !== undefined) {
+      options['price'] = ctx.request.body.price;
+    }
+    if (ctx.request.body.author !== undefined) {
+      options['author'] = ctx.request.body.author;
+    }
+
+    await Book.createQueryBuilder("book").update(Book)
+      .set(options)
+      .where("id = :id", { id: bookId })
+      .execute();
 
     return new HttpResponseOK();
   }
