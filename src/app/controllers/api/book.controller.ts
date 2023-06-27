@@ -496,6 +496,9 @@ export class BookController {
     if (!bookcopy) {
       return new HttpResponseNotFound();
     }
+    if (!bookcopy.user) {
+      return new HttpResponseForbidden();
+    }
     try {
       await bookcopy.remove();
     } catch (e: any) {
